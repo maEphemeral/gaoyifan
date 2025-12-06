@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Love - 动态烟花效果</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            cursor: pointer;
+        }
+        
+        #fireworks {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        /* 右上角图片样式 - 放大两倍并适配界面 */
+        .top-right-image {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            border: 6px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 60px rgba(255, 255, 255, 0.8);
+            z-index: 10;
+            transition: all 0.4s ease;
+            animation: float 3s ease-in-out infinite;
+            object-fit: cover;
+            /* 适配小屏幕 */
+            max-width: 80vw;
+            max-height: 80vh;
+        }
+        
+        .top-right-image:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 80px rgba(255, 255, 255, 1);
+            border-color: rgba(255, 255, 255, 1);
+        }
+        
+        /* 鼓励话语弹窗样式 */
+        .encouragement-popup {
+            position: fixed;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            border: 3px solid #ff6b6b;
+            border-radius: 15px;
+            padding: 20px;
+            max-width: 350px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            z-index: 1000;
+            animation: popupAppear 0.5s ease-out, popupDisappear 0.5s ease-in 5.5s forwards;
+            font-size: 1em;
+            line-height: 1.5;
+            color: #333;
+            text-align: center;
+            font-family: 'Microsoft YaHei', sans-serif;
+        }
+        
+        .encouragement-popup::before {
+            content: '💕';
+            font-size: 1.5em;
+            display: block;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        
+        /* 适配移动端 */
+        @media (max-width: 768px) {
+            .top-right-image {
+                width: 300px;
+                height: 300px;
+                top: 15px;
+                right: 15px;
+            }
+            
+            .encouragement-popup {
+                max-width: 280px;
+                font-size: 0.9em;
+                padding: 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .top-right-image {
+                width: 250px;
+                height: 250px;
+                top: 10px;
+                right: 10px;
+            }
+            
+            .encouragement-popup {
+                max-width: 250px;
+                font-size: 0.85em;
+                padding: 12px;
+            }
+        }
+        
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+        
+        @keyframes popupAppear {
+            0% { 
+                opacity: 0; 
+                transform: scale(0.5) translateY(-20px); 
+            }
+            100% { 
+                opacity: 1; 
+                transform: scale(1) translateY(0); 
+            }
+        }
+        
+        @keyframes popupDisappear {
+            0% { 
+                opacity: 1; 
+                transform: scale(1); 
+            }
+            100% { 
+                opacity: 0; 
+                transform: scale(0.8); 
+            }
+        }
+        
+        .firework {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        
+        .spark {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        
+        .auto-play-hint {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 1.5em;
+            text-align: center;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            animation: hintPulse 2s ease-in-out infinite;
+            z-index: 5;
+        }
+        
+        @keyframes hintPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div id="fireworks"></div>
+    
+    <!-- 自动播放提示 -->
+    <div class="auto-play-hint"></div>
+    
+    <!-- 右上角图片 - 放大两倍并适配界面 -->
+    <img src="gyf.jfif" alt="图片" class="top-right-image">
+
+    <script>
+        const encouragementMessages = [
+            "不用逼自己 '必须做到完美'，你每天坐在书桌前的坚持，已经比很多人勇敢了。累了就歇会儿，我等你调整好再出发～",
+            "错题不是 '失败'，是帮你避开陷阱的信号呀！慢慢来，每一步沉淀都在靠近上岸的目标，你超稳的。",
+            "复习节奏不用跟着别人跑，你有自己的计划和节奏，按部就班就是最快的路。我相信你的努力，从来都不会白费。",
+            "偶尔学不进去很正常，不用自责呀～ 可以吃点爱吃的零食、听首歌放松 10 分钟，调整好状态再继续，你已经很棒了！",
+            "考研只是人生的一段旅程，不是全部。不管结果怎么样，你在我心里永远是最优秀的，我会一直支持你。",
+            "不用怕孤单，我虽然不能陪你一起坐在书桌前，但会在你看不见的地方，默默为你加油。累了就告诉我，我随时都在。",
+            "复习期间不用操心别的事，想吃什么、想要什么，都告诉我，我来安排，你只管专心备考就好～",
+            "晚上学到再晚，记得给我发个消息报平安；早上起不来也没关系，偶尔睡个懒觉补充精力，效率反而更高呀。",
+            "周末如果想放松，我可以陪你去散散步、吃顿好的，或者就安安静静待着，让你暂时逃离书本的压力。",
+            "不管你复习到多晚，家里/宿舍永远有一盏灯为你留着，有我在等你回来休息。",
+            "你真的太厉害了！那么多知识点、那么厚的书，你都一点点啃下来了，这份毅力和坚持，已经赢了很多人。",
+            "我见过你为了一道题熬夜钻研的样子，见过你背单词背到嗓子哑的样子，这些努力都不会被辜负，上岸一定有你！",
+            "你本来就很优秀，考研只是让你发光的一个契机。相信自己，你付出的每一分努力，都会在考场上得到回报。",
+            "遇到难题别慌，你已经准备了这么久，知识点都烂熟于心了，只是暂时没找到思路。慢慢来，你一定能攻克它！",
+            "等你考完试，我们就去吃你最想吃的大餐、去你想去的地方旅行，把备考期间的辛苦都补回来～ 现在的坚持，都是为了更美好的未来呀！",
+            "记得多喝热水，别因为复习忘了吃饭；久坐久了起来活动活动，保护好眼睛和颈椎，身体才是备考的本钱呀。",
+            "天气变凉了，记得添衣服；晚上睡觉盖好被子，别着凉了。你安心复习，照顾好自己的事交给我～",
+            "背单词累了就听听听力，做题累了就看看错题本，换个方式也是一种放松，别一直紧绷着弦呀。",
+            "给你买了你爱吃的零食和咖啡，放在书桌旁边了，学累了就吃一点、喝一口，补充点能量继续冲～",
+            "今天也辛苦啦！不管复习效果怎么样，都要好好休息，睡个好觉。明天又是元气满满的一天，你一定可以的！"
+        ];
+        
+        let currentIndex = 0;
+        let encouragementInterval;
+        let isRunning = false;
+        
+        function getRandomPosition() {
+            const margin = 50;
+            const maxX = window.innerWidth - 400;
+            const maxY = window.innerHeight - 200;
+            
+            return {
+                x: margin + Math.random() * (maxX - margin * 2),
+                y: margin + Math.random() * (maxY - margin * 2)
+            };
+        }
+        
+        function createEncouragementPopup(message) {
+            const position = getRandomPosition();
+            
+            const popup = document.createElement('div');
+            popup.className = 'encouragement-popup';
+            popup.textContent = message;
+            popup.style.left = position.x + 'px';
+            popup.style.top = position.y + 'px';
+            
+            document.body.appendChild(popup);
+            
+            // 6秒后移除弹窗
+            setTimeout(() => {
+                if (popup.parentNode) {
+                    popup.parentNode.removeChild(popup);
+                }
+            }, 6000);
+            
+            return popup;
+        }
+        
+        function showNextEncouragement() {
+            if (currentIndex >= encouragementMessages.length) {
+                currentIndex = 0; // 循环播放
+            }
+            
+            const message = encouragementMessages[currentIndex];
+            createEncouragementPopup(message);
+            
+            currentIndex++;
+        }
+        
+        function startEncouragement() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            // 隐藏提示
+            document.querySelector('.auto-play-hint').style.display = 'none';
+            
+            // 立即显示第一条消息
+            showNextEncouragement();
+            // 然后每2秒显示下一条
+            encouragementInterval = setInterval(showNextEncouragement, 1000);
+        }
+        
+        // 烟花系统代码
+        class Firework {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.color = this.getRandomColor();
+                this.particles = [];
+                this.explode();
+            }
+            
+            getRandomColor() {
+                const colors = [
+                    '#ff6b6b', '#ff9ff3', '#feca57', '#48dbfb', 
+                    '#1dd1a1', '#ff9f43', '#54a0ff', '#5f27cd'
+                ];
+                return colors[Math.floor(Math.random() * colors.length)];
+            }
+            
+            explode() {
+                const particleCount = 80 + Math.floor(Math.random() * 40);
+                
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = (Math.PI * 2 * i) / particleCount;
+                    const speed = 2 + Math.random() * 3;
+                    const size = 2 + Math.random() * 3;
+                    
+                    const particle = document.createElement('div');
+                    particle.className = 'spark';
+                    particle.style.backgroundColor = this.color;
+                    particle.style.left = this.x + 'px';
+                    particle.style.top = this.y + 'px';
+                    particle.style.width = size + 'px';
+                    particle.style.height = size + 'px';
+                    
+                    document.getElementById('fireworks').appendChild(particle);
+                    
+                    this.particles.push({
+                        element: particle,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 100 + Math.random() * 50,
+                        alpha: 1
+                    });
+                }
+            }
+            
+            update() {
+                this.particles = this.particles.filter(particle => {
+                    particle.life--;
+                    particle.alpha = particle.life / 150;
+                    
+                    const x = parseFloat(particle.element.style.left) + particle.vx;
+                    const y = parseFloat(particle.element.style.top) + particle.vy;
+                    
+                    particle.element.style.left = x + 'px';
+                    particle.element.style.top = y + 'px';
+                    particle.element.style.opacity = particle.alpha;
+                    
+                    particle.vy += 0.05; // 重力效果
+                    
+                    if (particle.life <= 0) {
+                        particle.element.remove();
+                        return false;
+                    }
+                    return true;
+                });
+                
+                return this.particles.length > 0;
+            }
+        }
+        
+        class FireworksSystem {
+            constructor() {
+                this.fireworks = [];
+                this.lastFireworkTime = 0;
+                this.animationId = null;
+                this.start();
+            }
+            
+            createFirework() {
+                const x = Math.random() * window.innerWidth;
+                const y = Math.random() * window.innerHeight * 0.8;
+                this.fireworks.push(new Firework(x, y));
+            }
+            
+            update() {
+                const currentTime = Date.now();
+                
+                // 每300-800毫秒创建一个新烟花
+                if (currentTime - this.lastFireworkTime > 300 + Math.random() * 500) {
+                    this.createFirework();
+                    this.lastFireworkTime = currentTime;
+                }
+                
+                // 更新所有烟花
+                this.fireworks = this.fireworks.filter(firework => firework.update());
+                
+                this.animationId = requestAnimationFrame(() => this.update());
+            }
+            
+            start() {
+                // 初始创建几个烟花
+                for (let i = 0; i < 5; i++) {
+                    setTimeout(() => this.createFirework(), i * 200);
+                }
+                
+                this.update();
+            }
+            
+            stop() {
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                }
+            }
+        }
+        
+        // 页面加载完成后启动烟花系统和自动播放
+        document.addEventListener('DOMContentLoaded', function() {
+            const fireworksSystem = new FireworksSystem();
+            
+            // 页面加载后3秒自动开始播放鼓励话语
+            setTimeout(startEncouragement, 3000);
+            
+            // 点击页面也可以创建烟花
+            document.addEventListener('click', function(e) {
+                fireworksSystem.fireworks.push(new Firework(e.clientX, e.clientY));
+            });
+            
+            // 响应窗口大小变化
+            window.addEventListener('resize', function() {
+                // 重新调整烟花位置（简化处理）
+            });
+        });
+        
+        // 添加鼠标移动效果
+        document.addEventListener('mousemove', function(e) {
+            const sparks = document.querySelectorAll('.spark');
+            if (sparks.length > 0) {
+                // 让最近的几个火花跟随鼠标
+                Array.from(sparks)
+                    .slice(-10)
+                    .forEach((spark, index) => {
+                        setTimeout(() => {
+                            spark.style.transition = 'all 0.3s ease';
+                            spark.style.left = (e.clientX + (Math.random() - 0.5) * 50) + 'px';
+                            spark.style.top = (e.clientY + (Math.random() - 0.5) * 50) + 'px';
+                        }, index * 50);
+                    });
+            }
+        });
+    </script>
+</body>
+</html>
